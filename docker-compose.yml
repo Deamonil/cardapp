@@ -1,13 +1,31 @@
-version: '3.8'
-
 services:
-  frontend:
-    build: .
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    container_name: cardapp-server
     ports:
-      - '3000:3000'
-    volumes:
-      - ./:/app
-      - /app/node_modules
+      - "2050:2050"
     environment:
-      - NODE_ENV=development
-    command: sh -c "npm install && npm run dev"
+      - NODE_ENV=production
+      - PORT=2050
+    networks:
+      - cardapp-network
+    restart: unless-stopped
+
+  client:
+    build:
+      context: .
+      dockerfile: Dockerfile.client
+    container_name: cardapp-client
+    ports:
+      - "80:80"
+    depends_on:
+      - server
+    networks:
+      - cardapp-network
+    restart: unless-stopped
+
+networks:
+  cardapp-network:
+    driver: bridge
