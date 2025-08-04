@@ -1,9 +1,7 @@
-import{ PayForm } from './components/payForm';
+import { PayForm } from './components/payForm';
 
 function App() {
-  return (
-    <PayForm />
-  )
+  return <PayForm />;
 }
 
-export default App
+export default App;

@@ -1,4 +1,33 @@
 import { usePayForm } from '../hooks/usePayForm';
+import { ErrorScreen } from './errorScreen';
+import { FormField } from './formField';
+import { SuccessScreen } from './successScreen';
+
+const FORM_CONFIG = {
+  cardNumber: {
+    minLength: 16,
+    maxLength: 23,
+    placeholder: '0000 0000 0000 0000',
+  },
+  expiry: {
+    maxLength: 5,
+    placeholder: 'ММ/ГГ',
+  },
+  cvv: {
+    maxLength: 3,
+    placeholder: '***',
+  },
+  cardName: {
+    placeholder: 'IVAN IVANOV',
+  },
+} as const;
+
+const TOOLTIPS = {
+  cardNumber: 'Номер карты должен содержать от 13 до 19 цифр',
+  expiry: 'Первое число от 1 до 12 (месяц), второе от 21 до 26 (год)',
+  cvv: 'CVV код состоит из 3 цифр',
+  cardName: 'Введите имя и фамилию',
+} as const;
 
 export const PayForm = () => {
   const {
@@ -12,6 +41,8 @@ export const PayForm = () => {
     cardNameError,
     buttonDisabled,
     isLoading,
+    isSuccess,
+    isError,
     handleCardNumberChange,
     validateCardNumber,
     handleExpiryChange,
@@ -23,86 +54,113 @@ export const PayForm = () => {
     handleSubmit,
   } = usePayForm();
 
+  if (isSuccess) return <SuccessScreen />;
+  if (isError) return <ErrorScreen />;
+
   return (
     <div className="flex items-center justify-center h-screen">
-      <div className="w-[457px] h-[464px] p-[20px] bg-white rounded-lg shadow-sm">
+      <div className="w-[457px] min-h-[464px] p-[20px] bg-white rounded-lg shadow-sm">
         <h2 className="text-title font-inter font-normal leading-[1.3] text-grey-900 mb-6 text-left">
           Оплата банковской картой
-        </h2>  
-        <div className="h-[84px] space-y-4">
-          <div className='h-[84px]'>
-            <label className="block text-sm font-normal text-grey-800 mb-1">Номер карты</label>
+        </h2>
+
+        <form
+          className="space-y-4"
+          onSubmit={e => {
+            e.preventDefault();
+            handleSubmit();
+          }}
+        >
+          <FormField label="Номер карты" error={cardNumberError}>
             <input
-              className={`w-full px-3 py-2 border ${cardNumberError ? 'border-error' : 'border-grey-200 focus:border-primary hover:border-gray-800'} rounded-md focus:outline-none`}
+              className={`w-full px-3 py-2 border ${
+                cardNumberError
+                  ? 'border-error focus:border-error'
+                  : 'border-grey-200 focus:border-primary hover:border-grey-400'
+              } rounded-md focus:outline-none transition-colors`}
               type="text"
-              minLength={16}
-              maxLength={23}
-              placeholder="0000 0000 0000 0000"
+              minLength={FORM_CONFIG.cardNumber.minLength}
+              maxLength={FORM_CONFIG.cardNumber.maxLength}
+              placeholder={FORM_CONFIG.cardNumber.placeholder}
               value={cardNumber}
+              title={TOOLTIPS.cardNumber}
               onChange={handleCardNumberChange}
               onBlur={validateCardNumber}
-              title={cardNumberError ? "Номер карты должен содержать от 13 до 19 цифр" : ""}
-
             />
-            {cardNumberError && <p className="mt-1 text-sm text-error">{cardNumberError}</p>}
-          </div>
+          </FormField>
+
           <div className="h-[84px] flex justify-between">
-            <div className='w-[174px]'>
-              <label className="block text-sm font-normal text-grey-800 mb-1">Месяц/Год</label>
+            <FormField
+              label="Месяц/Год"
+              error={expiryError}
+              className="w-[174px]"
+            >
               <input
-                className={`w-full px-3 py-2 border ${expiryError ? 'border-error' : 'border-grey-200 focus:border-primary hover:border-gray-800'} rounded-md`}
+                className={`w-full px-3 py-2 border ${
+                  expiryError
+                    ? 'border-error focus:border-error'
+                    : 'border-grey-200 focus:border-primary hover:border-grey-400'
+                } rounded-md focus:outline-none transition-colors`}
                 type="text"
-                maxLength={5}
-                placeholder="Default"
+                maxLength={FORM_CONFIG.expiry.maxLength}
+                placeholder={FORM_CONFIG.expiry.placeholder}
+                title={TOOLTIPS.expiry}
                 value={expiry}
                 onChange={handleExpiryChange}
                 onBlur={validateExpiry}
-                title={expiryError ? "Первое число от 1 до 12, второе от 21 до 26" : ""}
               />
-              {expiryError && <p className="mt-1 text-sm text-error">{expiryError}</p>}
-            </div>
-            <div className='w-[174px]'>
-              <label className="block text-sm font-normal text-grey-800 mb-1">Код</label>
+            </FormField>
+
+            <FormField label="Код" error={cvvError} className="w-[174px]">
               <input
-                className={`w-full px-3 py-2 border ${cvvError ? 'border-error' : 'border-grey-200 focus:border-primary hover:border-gray-800'} rounded-md`}
+                className={`w-full px-3 py-2 border ${
+                  cvvError
+                    ? 'border-error focus:border-error'
+                    : 'border-grey-200 focus:border-primary hover:border-grey-400'
+                } rounded-md focus:outline-none transition-colors`}
                 type="password"
-                maxLength={3}   
-                placeholder="***" 
+                maxLength={FORM_CONFIG.cvv.maxLength}
+                placeholder={FORM_CONFIG.cvv.placeholder}
+                title={TOOLTIPS.cvv}
                 value={cvv}
                 onChange={handleCvvChange}
                 onBlur={validateCvv}
-                title={cvvError ? "Код состоит из трех цифр" : ""}
               />
-              {cvvError && <p className="mt-1 text-sm text-error">{cvvError}</p>}
-            </div>
+            </FormField>
           </div>
-          <div className='h-[84px]'>
-            <label className="block text-sm font-normal text-grey-800 mb-1">Владелец карты</label>
+
+          <FormField label="Владелец карты" error={cardNameError}>
             <input
-              className={`w-full px-3 py-2 border ${cardNameError ? 'border-error' : 'border-grey-200 focus:border-primary hover:border-gray-800'} rounded-md`}
+              className={`w-full px-3 py-2 border ${
+                cardNameError
+                  ? 'border-error focus:border-error'
+                  : 'border-grey-200 focus:border-primary hover:border-grey-400'
+              } rounded-md focus:outline-none transition-colors uppercase`}
               type="text"
-              placeholder="IVAN IVANOV"
+              placeholder={FORM_CONFIG.cardName.placeholder}
+              title={TOOLTIPS.cardName}
               value={cardName}
               onChange={handleCardNameChange}
-              onBlur={validateCardName}     
-              title={cardNameError ? "Владелец карты - два слова любой длины, без цифр" : ""}       
-              />
-            {cardNameError && <p className="mt-1 text-sm text-error">{cardNameError}</p>}
-          </div>
-          <div className='h-[84px] flex justify-end'>
+              onBlur={validateCardName}
+            />
+          </FormField>
+
+          <div className="h-[84px] flex justify-end items-start pt-6">
             <button
-              className={`w-[123px] h-[48px] bg-primary hover:bg-primary-dark text-white font-inter rounded-[10px] text-button leading-[18px] disabled:bg-gray-100 disabled:text-gray-400 flex items-center justify-center ${isLoading ? 'cursor-not-allowed' : ''}`}
+              type="submit"
+              className={`w-[123px] h-[48px] bg-primary hover:bg-primary-dark text-white font-inter rounded-[10px] text-button leading-[18px] 
+                disabled:bg-grey-200 disabled:text-grey-500 
+                flex items-center justify-center transition-all duration-200`}
               disabled={buttonDisabled || isLoading}
-              onClick={handleSubmit}
             >
               {isLoading ? (
-                <div className="w-[25px] h-[25px] border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                <div className="w-[20px] h-[20px] border-2 border-primary border-t-transparent rounded-full animate-spin" />
               ) : (
                 'Оплатить'
               )}
             </button>
           </div>
-        </div>
+        </form>
       </div>
     </div>
   );

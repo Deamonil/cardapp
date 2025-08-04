@@ -11,8 +11,10 @@ export const usePayForm = () => {
   const [cardNameError, setCardNameError] = useState('');
   const [buttonDisabled, setButtonDisabled] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [isError, setIsError] = useState(false);
   const error = 'Ошибка валидации';
-  
+
   const formatCardNumber = (value: string) => {
     const numericOnly = value.replace(/[^0-9]/g, '');
     const limited = numericOnly.substring(0, 19);
@@ -20,7 +22,7 @@ export const usePayForm = () => {
     for (let i = 0; i < limited.length; i += 4) {
       parts.push(limited.substring(i, i + 4));
     }
-    
+
     return parts.join(' ');
   };
 
@@ -31,14 +33,14 @@ export const usePayForm = () => {
 
   const validateCardNumber = () => {
     const numericValue = cardNumber.replace(/\s/g, '');
-    
+
     if (!numericValue) {
       setCardNumberError('');
       return true;
     }
-    
+
     let isValid = true;
-    
+
     if (numericValue.length < 13) {
       setCardNumberError(error);
       isValid = false;
@@ -46,19 +48,19 @@ export const usePayForm = () => {
       setCardNumberError('');
       isValid = true;
     }
-    
+
     validateForm(cardNumber, expiry, cvv, cardName);
-    
+
     return isValid;
   };
 
   const handleExpiryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let value = e.target.value.replace(/\D/g, '');
-    
+
     if (value.length > 2) {
       value = value.substring(0, 2) + '/' + value.substring(2, 4);
     }
-    
+
     setExpiry(value);
     validateForm(cardNumber, value, cvv, cardName);
   };
@@ -96,9 +98,9 @@ export const usePayForm = () => {
       setCvvError('');
       return true;
     }
-    
+
     let isValid = true;
-    
+
     if (cvv.length !== 3) {
       setCvvError(error);
       isValid = false;
@@ -106,14 +108,16 @@ export const usePayForm = () => {
       setCvvError('');
       isValid = true;
     }
-    
+
     validateForm(cardNumber, expiry, cvv, cardName);
-    
+
     return isValid;
   };
 
   const handleCardNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/[^a-zA-Zа-яА-Я\s]/g, '').toUpperCase();
+    const value = e.target.value
+      .replace(/[^a-zA-Zа-яА-Я\s]/g, '')
+      .toUpperCase();
     setCardName(value);
   };
 
@@ -122,21 +126,21 @@ export const usePayForm = () => {
       setCardNameError('');
       return true;
     }
-    
+
     const words = cardName.trim().split(/\s+/);
-    
+
     let isValid = true;
-    
+
     if (words.length !== 2) {
       setCardNameError(error);
       isValid = false;
-    }  else {
+    } else {
       setCardNameError('');
       isValid = true;
     }
-    
+
     validateForm(cardNumber, expiry, cvv, cardName);
-    
+
     return isValid;
   };
 
@@ -148,27 +152,35 @@ export const usePayForm = () => {
     isCardNumValid?: boolean
   ) => {
     const cardNumericValue = cardNum.replace(/\s/g, '');
-    const isCardNumberValid = isCardNumValid !== undefined 
-      ? isCardNumValid 
-      : cardNumericValue.length >= 13 && cardNumericValue.length <= 19;
+    const isCardNumberValid =
+      isCardNumValid !== undefined
+        ? isCardNumValid
+        : cardNumericValue.length >= 13 && cardNumericValue.length <= 19;
 
     const isExpiryValid = exp.length === 5 && !expiryError;
     const isCvvValid = cvvValue.length === 3 && !cvvError;
-    
-    const nameWords = name.trim().split(/\s+/);
-    const isCardNameValid = nameWords.length === 2 && 
-      !cardNameError;
 
-    setButtonDisabled(!(isCardNumberValid && isExpiryValid && isCvvValid && isCardNameValid));
+    const nameWords = name.trim().split(/\s+/);
+    const isCardNameValid = nameWords.length === 2 && !cardNameError;
+
+    setButtonDisabled(
+      !(isCardNumberValid && isExpiryValid && isCvvValid && isCardNameValid)
+    );
   };
 
   const handleSubmit = async () => {
     if (!buttonDisabled && !isLoading) {
       setIsLoading(true);
       console.log('handleSubmit: ', { cardNumber, expiry, cvv, cardName });
-      
+
       setTimeout(() => {
         setIsLoading(false);
+
+        if (isSuccess) {
+          setIsSuccess(true);
+        } else {
+          setIsError(true);
+        }
       }, 2000);
     }
   };
@@ -184,7 +196,9 @@ export const usePayForm = () => {
     cardNameError,
     buttonDisabled,
     isLoading,
-    
+    isSuccess,
+    isError,
+
     handleCardNumberChange,
     validateCardNumber,
     handleExpiryChange,
