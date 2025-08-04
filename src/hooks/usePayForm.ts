@@ -1,5 +1,15 @@
 import { useState } from 'react';
-import { uuid4 } from '../utils';
+import { SERVER } from '../constans/constans';
+import type { RequestBodyPay, ResponsePay, StatusResponsePay } from '../interfaces/interfaces';
+import {
+  formatCardName,
+  formatCardNumber,
+  getNumericOnly,
+  hasTwoWords,
+  isValidateExpiry,
+  isValidCardNumber,
+  uuid4,
+} from '../utils';
 
 export const usePayForm = () => {
   const [cardNumber, setCardNumber] = useState('');
@@ -16,47 +26,34 @@ export const usePayForm = () => {
   const [isError, setIsError] = useState(false);
   const error = 'Ошибка валидации';
 
-  const formatCardNumber = (value: string) => {
-    const numericOnly = value.replace(/[^0-9]/g, '');
-    const limited = numericOnly.substring(0, 19);
-    const parts = [];
-    for (let i = 0; i < limited.length; i += 4) {
-      parts.push(limited.substring(i, i + 4));
-    }
-
-    return parts.join(' ');
-  };
-
   const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const formattedValue = formatCardNumber(e.target.value);
     setCardNumber(formattedValue);
+    validateForm(formattedValue, expiry, cvv, cardName);
   };
 
   const validateCardNumber = () => {
-    const numericValue = cardNumber.replace(/\s/g, '');
+    const numericValue = getNumericOnly(cardNumber);
 
     if (!numericValue) {
       setCardNumberError('');
       return true;
     }
 
-    let isValid = true;
+    const isValid = isValidCardNumber(numericValue);
 
-    if (numericValue.length < 13) {
+    if (!isValid) {
       setCardNumberError(error);
-      isValid = false;
     } else {
       setCardNumberError('');
-      isValid = true;
     }
 
     validateForm(cardNumber, expiry, cvv, cardName);
-
     return isValid;
   };
 
   const handleExpiryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value.replace(/\D/g, '');
+    let value = getNumericOnly(e.target.value);
 
     if (value.length > 2) {
       value = value.substring(0, 2) + '/' + value.substring(2, 4);
@@ -72,26 +69,22 @@ export const usePayForm = () => {
       return true;
     }
 
-    const [month, year] = expiry.split('/');
-    const monthNum = parseInt(month, 10);
-    const yearNum = parseInt(year, 10);
+    const isValid = isValidateExpiry(expiry);
 
-    if (!month || month.length !== 2 || monthNum < 1 || monthNum > 12) {
+    if (!isValid) {
       setExpiryError(error);
-      return false;
-    } else if (!year || year.length !== 2 || yearNum < 21 || yearNum > 26) {
-      setExpiryError(error);
-      return false;
     } else {
       setExpiryError('');
-      return true;
     }
+
+    return isValid;
   };
 
   const handleCvvChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const numericValue = e.target.value.replace(/\D/g, '');
+    const numericValue = getNumericOnly(e.target.value);
     const limited = numericValue.substring(0, 3);
     setCvv(limited);
+    validateForm(cardNumber, expiry, limited, cardName);
   };
 
   const validateCvv = () => {
@@ -100,26 +93,22 @@ export const usePayForm = () => {
       return true;
     }
 
-    let isValid = true;
+    const isValid = cvv.length === 3;
 
-    if (cvv.length !== 3) {
+    if (!isValid) {
       setCvvError(error);
-      isValid = false;
     } else {
       setCvvError('');
-      isValid = true;
     }
 
     validateForm(cardNumber, expiry, cvv, cardName);
-
     return isValid;
   };
 
   const handleCardNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
-      .replace(/[^a-zA-Zа-яА-Я\s]/g, '')
-      .toUpperCase();
+    const value = formatCardName(e.target.value);
     setCardName(value);
+    validateForm(cardNumber, expiry, cvv, value);
   };
 
   const validateCardName = () => {
@@ -128,20 +117,15 @@ export const usePayForm = () => {
       return true;
     }
 
-    const words = cardName.trim().split(/\s+/);
+    const isValid = hasTwoWords(cardName);
 
-    let isValid = true;
-
-    if (words.length !== 2) {
+    if (!isValid) {
       setCardNameError(error);
-      isValid = false;
     } else {
       setCardNameError('');
-      isValid = true;
     }
 
     validateForm(cardNumber, expiry, cvv, cardName);
-
     return isValid;
   };
 
@@ -149,20 +133,12 @@ export const usePayForm = () => {
     cardNum = cardNumber,
     exp = expiry,
     cvvValue = cvv,
-    name = cardName,
-    isCardNumValid?: boolean
+    name = cardName
   ) => {
-    const cardNumericValue = cardNum.replace(/\s/g, '');
-    const isCardNumberValid =
-      isCardNumValid !== undefined
-        ? isCardNumValid
-        : cardNumericValue.length >= 13 && cardNumericValue.length <= 19;
-
+    const isCardNumberValid = isValidCardNumber(getNumericOnly(cardNum));
     const isExpiryValid = exp.length === 5 && !expiryError;
     const isCvvValid = cvvValue.length === 3 && !cvvError;
-
-    const nameWords = name.trim().split(/\s+/);
-    const isCardNameValid = nameWords.length === 2 && !cardNameError;
+    const isCardNameValid = hasTwoWords(name) && !cardNameError;
 
     setButtonDisabled(
       !(isCardNumberValid && isExpiryValid && isCvvValid && isCardNameValid)
@@ -171,8 +147,8 @@ export const usePayForm = () => {
 
   const checkPaymentStatus = async (pid: string): Promise<void> => {
     try {
-      const response = await fetch(`http://localhost:2050/pay/check/${pid}`);
-      const data = await response.json();
+      const response = await fetch(`${SERVER}/pay/check/${pid}`);
+      const data: StatusResponsePay = await response.json();
 
       if (data.status === 'process') {
         setTimeout(() => checkPaymentStatus(pid), 1000);
@@ -183,7 +159,6 @@ export const usePayForm = () => {
         setIsError(true);
         setIsLoading(false);
       }
-    
     } catch (error) {
       setIsLoading(false);
       setIsError(true);
@@ -198,25 +173,27 @@ export const usePayForm = () => {
       try {
         const requestId = uuid4();
 
-        const response = await fetch('http://localhost:2050/api', {
+        const requestBody: RequestBodyPay = {
+          jsonrpc: '2.0',
+          id: requestId,
+          method: 'pay',
+          params: {
+            pan: getNumericOnly(cardNumber),
+            expire: expiry,
+            cardholder: cardName,
+            cvc: cvv,
+          },
+        };
+
+        const response = await fetch(`${SERVER}/api`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            jsonrpc: '2.0',
-            id: requestId,
-            method: 'pay',
-            params: {
-              pan: cardNumber.replace(/\s/g, ''),
-              expire: expiry,
-              cardholder: cardName,
-              cvc: cvv,
-            },
-          }),
+          body: JSON.stringify(requestBody),
         });
 
-        const data = await response.json();
+        const data: ResponsePay = await response.json();
 
         if (data.result && data.result.pid) {
           checkPaymentStatus(data.result.pid);
