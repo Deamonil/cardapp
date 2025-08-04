@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { uuid4 } from '../utils';
 
 export const usePayForm = () => {
   const [cardNumber, setCardNumber] = useState('');
@@ -168,20 +169,66 @@ export const usePayForm = () => {
     );
   };
 
+  const checkPaymentStatus = async (pid: string): Promise<void> => {
+    try {
+      const response = await fetch(`http://localhost:2050/pay/check/${pid}`);
+      const data = await response.json();
+
+      if (data.status === 'process') {
+        setTimeout(() => checkPaymentStatus(pid), 1000);
+      } else if (data.status === 'ok') {
+        setIsSuccess(true);
+        setIsLoading(false);
+      } else if (data.status === 'fail') {
+        setIsError(true);
+        setIsLoading(false);
+      }
+    
+    } catch (error) {
+      setIsLoading(false);
+      setIsError(true);
+      console.error('checkPaymentStatus:', error);
+    }
+  };
+
   const handleSubmit = async () => {
     if (!buttonDisabled && !isLoading) {
       setIsLoading(true);
-      console.log('handleSubmit: ', { cardNumber, expiry, cvv, cardName });
 
-      setTimeout(() => {
-        setIsLoading(false);
+      try {
+        const requestId = uuid4();
 
-        if (isSuccess) {
-          setIsSuccess(true);
+        const response = await fetch('http://localhost:2050/api', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            id: requestId,
+            method: 'pay',
+            params: {
+              pan: cardNumber.replace(/\s/g, ''),
+              expire: expiry,
+              cardholder: cardName,
+              cvc: cvv,
+            },
+          }),
+        });
+
+        const data = await response.json();
+
+        if (data.result && data.result.pid) {
+          checkPaymentStatus(data.result.pid);
         } else {
+          setIsLoading(false);
           setIsError(true);
         }
-      }, 2000);
+      } catch (error) {
+        setIsLoading(false);
+        setIsError(true);
+        console.error('handleSubmit:', error);
+      }
     }
   };
 
